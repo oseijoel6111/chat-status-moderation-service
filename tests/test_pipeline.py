@@ -42,23 +42,19 @@ def test_benign_image_is_auto_allowed(conn):
 
 
 @pytest.mark.skipif(not os.path.exists(EXPLICIT_FRAME), reason="fixture not present")
-def test_explicit_frame_is_queued_for_review(conn):
+def test_explicit_frame_is_auto_blocked(conn):
     result = run_moderation(EXPLICIT_FRAME, media_type="image", conn=conn)
-    assert result.decision == Decision.REVIEW
+    assert result.decision == Decision.AUTO_BLOCK
     assert result.max_score >= config.REVIEW_THRESHOLD
 
     queued = review_queue.list_pending(conn)
-    assert any(item["asset_id"] == result.asset_id for item in queued)
+    assert not any(item["asset_id"] == result.asset_id for item in queued)
 
 
 @pytest.mark.skipif(not os.path.exists(VIDEO_PATH), reason="fixture not present")
 def test_video_end_to_end_smoke(conn):
     result = run_moderation(VIDEO_PATH, media_type="video", conn=conn)
-    assert result.decision in (
-        Decision.AUTO_ALLOW,
-        Decision.REVIEW,
-        Decision.AUTO_BLOCK,
-    )
+    assert result.decision in (Decision.AUTO_ALLOW, Decision.AUTO_BLOCK)
     assert len(result.frames) > 0
 
     frame_rows = conn.execute(

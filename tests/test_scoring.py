@@ -71,5 +71,23 @@ def test_aggregate_all_allow():
 
 def test_aggregate_empty_frames():
     max_score, decision, reason, flagged_ratio = aggregate([])
-    assert decision == Decision.AUTO_ALLOW
+    assert decision == Decision.AUTO_BLOCK
     assert flagged_ratio == 0.0
+
+
+def test_score_frame_with_error_is_review_band_not_allow():
+    result = score_frame("f.jpg", 0, 0.0, [], error="unreadable or corrupt image")
+    assert result.max_score == 0.0
+    assert result.band == Band.REVIEW
+
+
+def test_aggregate_errored_frame_forces_auto_block_even_with_zero_score():
+    frames = [
+        score_frame("f0.jpg", 0, 0.0, []),
+        score_frame("f1.jpg", 1, 1.0, [], error="unreadable or corrupt image"),
+        score_frame("f2.jpg", 2, 2.0, []),
+    ]
+    max_score, decision, reason, flagged_ratio = aggregate(frames)
+    assert decision == Decision.AUTO_BLOCK
+    assert reason["frame_path"] == "f1.jpg"
+    assert flagged_ratio == 1 / 3
