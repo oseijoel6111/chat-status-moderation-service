@@ -3,11 +3,24 @@ from models import Band, Decision, Detection
 from scoring import aggregate, band_for_score, score_frame
 
 # Real true-positive scores observed on test footage (see config.py comment).
-OBSERVED_TRUE_POSITIVES = [0.278, 0.28, 0.424, 0.454, 0.471, 0.519, 0.597, 0.6]
+# REVIEW_THRESHOLD was raised from 0.25 to 0.45 after real production volume
+# showed false positives concentrated below 0.35 — three of these eight
+# calibration scores now fall below the new bar. That's an accepted
+# trade-off (fewer false blocks, at the cost of not catching real violations
+# in this range via threshold alone), not a regression.
+OBSERVED_TRUE_POSITIVES_BELOW_NEW_THRESHOLD = [0.278, 0.28, 0.424]
+OBSERVED_TRUE_POSITIVES_ABOVE_NEW_THRESHOLD = [0.454, 0.471, 0.519, 0.597, 0.6]
 
 
-def test_observed_true_positives_land_in_review_band():
-    for score in OBSERVED_TRUE_POSITIVES:
+def test_true_positives_below_045_now_auto_allow():
+    for score in OBSERVED_TRUE_POSITIVES_BELOW_NEW_THRESHOLD:
+        assert band_for_score(score) == Band.ALLOW, (
+            f"score {score} should be in ALLOW band, got {band_for_score(score)}"
+        )
+
+
+def test_true_positives_at_or_above_045_still_land_in_review_band():
+    for score in OBSERVED_TRUE_POSITIVES_ABOVE_NEW_THRESHOLD:
         assert band_for_score(score) == Band.REVIEW, (
             f"score {score} should be in REVIEW band, got {band_for_score(score)}"
         )
@@ -51,7 +64,7 @@ def test_aggregate_worst_frame_wins():
             "f2.jpg",
             2,
             2.0,
-            [Detection(cls="FEMALE_BREAST_EXPOSED", score=0.4, box=[0, 0, 1, 1])],
+            [Detection(cls="FEMALE_BREAST_EXPOSED", score=0.5, box=[0, 0, 1, 1])],
         ),
     ]
     max_score, decision, reason, flagged_ratio = aggregate(frames)
